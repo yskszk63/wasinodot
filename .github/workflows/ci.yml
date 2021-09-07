@@ -1,0 +1,93 @@
+name: Ci
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y --no-install-recommends curl ca-certificates patch make
+        wasi_sdk_url='https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz'
+        sudo curl -L $wasi_sdk_url|tar zxf - -C /opt
+        sudo mv /opt/wasi-sdk-12.0 /opt/wasi-sdk
+        echo "/opt/wasi-sdk/bin" >> $GITHUB_PATH
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: wasm32-wasi
+        override: true
+        profile: minimal
+
+    - name: Cargo cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.toml') }}
+
+    - name: Install cargo-wasi
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: cargo-wasi
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: wasi
+        args: build --release
+      env:
+        WASI_SDK_PATH: /opt/wasi-sdk
+
+    - name: Upload config.log
+      if: failure()
+      uses: actions/upload-artifact@v2
+      with:
+        name: config.log
+        path: |
+          graphviz-build/config.log
+
+    - run: |
+        ls target/wasm32-wasi/release/wasinodot.wasm
+
+    - name: Upload builds
+      uses: actions/upload-artifact@v2
+      with:
+        name: build
+        path: |
+          target/wasm32-wasi/release/wasinodot.wasm
+
+  release:
+    #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: build
+
+    - name: Remove latest nightly release
+      uses: dev-drprasad/delete-tag-and-release@v0.1.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        delete_release: true
+        tag_name: nightly
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        prerelease: true
+        files: |
+          wasinodot.wasm
+        tag_name: nightly

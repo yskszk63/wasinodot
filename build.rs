@@ -60,6 +60,15 @@ fn configure(graphviz_dir: &Path) -> PathBuf {
         return build;
     }
 
+    let wasi_sdk_path = env::var("WASI_SDK_PATH").ok();
+    let sysroot = if let Some(wasi_sdk_path) = wasi_sdk_path {
+        Path::new(&wasi_sdk_path).join("share/wasi-sysroot")
+    } else {
+        let wasi_sysroot =
+            env::var("WASI_SYSROOT").expect("`WASI_SDK_PATH` or `WASI_SYSROOT` not set.");
+        PathBuf::from(wasi_sysroot)
+    };
+
     let ok = Command::new(graphviz_dir.join("configure"))
         .arg(format!("--host={}", host))
         .args([
@@ -74,16 +83,27 @@ fn configure(graphviz_dir: &Path) -> PathBuf {
             "--without-poppler",
             "--without-pangocairo",
             "--without-webp",
-            "--with-sysroot=/opt/wasi-sdk/wasi-sysroot",
         ])
-        .arg(format!("--with-extraincludedir={}", Path::new(&dir).join("graphviz-stub").to_string_lossy()))
+        .arg(format!("--with-sysroot={}", sysroot.to_string_lossy()))
+        .arg(format!(
+            "--with-extraincludedir={}",
+            Path::new(&dir).join("graphviz-stub").to_string_lossy()
+        ))
         .env("CC", "clang")
         .env("LD", "wasm-ld")
-        .env("CXX", "clang")
+        .env("CXX", "clang++")
         .env("NM", "llvm-nm")
         .env("AR", "llvm-ar")
         .env("RANLIB", "llvm-ranlib")
-        .env("CFLAGS", format!("--sysroot=/opt/wasi-sdk/wasi-sysroot -target wasm32-wasi -D_WASI_EMULATED_SIGNAL -lwasi-emulated-signal"))
+        .env(
+            "CFLAGS",
+            format!(
+                "--sysroot={} -target wasm32-wasi",
+                sysroot.to_string_lossy()
+            ),
+        )
+        .env("CPPFLAGS", "-D_WASI_EMULATED_SIGNAL")
+        .env("LDFLAGS", "-lwasi-emulated-signal")
         .current_dir(&build)
         .status()
         .expect("unable to run configure")
