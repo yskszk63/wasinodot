@@ -137,7 +137,8 @@ fn make(build: &Path) {
 
 fn main() {
     if env::var("TARGET").unwrap() != "wasm32-wasi" {
-        panic!("could not to run")
+        println!("cargo:warning=Build skip cause target ne `wasi32-wasi`.");
+        return;
     }
 
     let graphviz_dir = get_graphviz_dir();
