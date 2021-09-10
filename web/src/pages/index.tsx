@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 export default function Home() {
   const [text, setText] = useState("digraph G {\n  a -> b;\n}");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   return (
     <div className={styles.container}>
@@ -17,8 +18,8 @@ export default function Home() {
       </Head>
 
       <main className={styles.main}>
-        <Editor text={text} onTextChanged={setText}/>
-        <Graphviz text={text} onError={console.log}/>
+        <Editor text={text} onTextChanged={setText} errorMessage={errorMessage}/>
+        <Graphviz text={text} onError={setErrorMessage} className={styles.imagePane}/>
       </main>
     </div>
   )

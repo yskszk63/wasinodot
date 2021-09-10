@@ -1,59 +1,80 @@
 import * as React from "react";
-import {EditorState, EditorView, basicSetup} from "@codemirror/basic-setup"
-import {keymap} from "@codemirror/view"
-import {indentWithTab} from "@codemirror/commands"
+import {EditorState, EditorView, basicSetup} from "@codemirror/basic-setup";
+import {keymap} from "@codemirror/view";
+import {indentWithTab} from "@codemirror/commands";
+import {linter, openLintPanel} from "@codemirror/lint";
 
 interface Props {
     onTextChanged?: (text: string) => any,
     text?: string,
+    errorMessage?: string | null,
 }
 
-interface State {
-    element: React.RefObject<HTMLDivElement>,
-    editorState: EditorState,
-}
+function Editor({text, onTextChanged, errorMessage}: Props) {
+    const element = React.useRef<HTMLDivElement>(null);
 
-class Editor extends React.Component<Props, State> {
-    constructor(props: Props) {
-        super(props);
-        const element = React.createRef<HTMLDivElement>();
-        const onTextChanged = props.onTextChanged || (() => {});
+    const handler = React.useCallback((text) => {
+        if (onTextChanged) {
+            onTextChanged(text);
+        }
+    }, [onTextChanged]);
 
-        this.state = {
-            element,
-            editorState: EditorState.create({
-                doc: props.text,
-                extensions: [
-                    basicSetup,
-                    keymap.of([indentWithTab]),
-                    EditorView.updateListener.of(val => {
+    const [initialText] = React.useState(text);
+    const diagnostics = React.useRef<string | null | undefined>(null);
+    React.useEffect(() => {
+        diagnostics.current = errorMessage;
+    }, [errorMessage]);
+
+    const state = React.useMemo(() => {
+        return EditorState.create({
+            doc: initialText,
+            extensions: [
+                basicSetup,
+                keymap.of([indentWithTab]),
+                EditorView.updateListener.of(val => {
+                    if (!val.changes.empty) {
                         const text = Array.from(val.state.doc).join("");
-                        onTextChanged(text);
-                    }),
-                    EditorView.theme({
-                        '&': {
-                            'height': '100%',
-                        },
-                    }),
-                ]
-            }),
-        };
-    }
+                        handler(text);
+                    }
+                }),
+                EditorView.theme({
+                    '&': {
+                        'height': '100%',
+                    },
+                }),
+                linter(view => {
+                    if (diagnostics.current) {
+                        const { from, to } = view.visibleRanges[0];
+                        return [
+                            {
+                                from,
+                                to,
+                                severity: 'error',
+                                message: diagnostics.current,
+                            }
+                        ];
+                    } else {
+                        return [];
+                    }
+                }),
+            ]
+        });
+    }, [initialText, handler, diagnostics]);
 
-    componentDidMount() {
-        const element = this.state.element.current;
-        if (!element) {
+    React.useEffect(() => {
+        if (!element.current) {
             throw new Error("element not initialized.");
         }
-        new EditorView({
-            state: this.state.editorState,
-            parent: element,
+        const view = new EditorView({
+            state,
+            parent: element.current,
         });
-    }
+        openLintPanel(view);
+        view.focus();
+        return () => view.destroy();
+    }, [element, state]);
 
-    render() {
-        return <><div ref={this.state.element} /></>;
-    }
+    return <><div ref={element} /></>;
 }
 
 export default Editor;

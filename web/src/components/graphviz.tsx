@@ -56,7 +56,7 @@ class InputBuffer {
     }
 }
 
-function Graphviz({text, onError}: { text: string, onError?: (err: string) => any }) {
+function Graphviz({text, onError, className}: { text: string, onError?: (err: string | null) => any, className?: string, }) {
     const delayText = useDebounse(text, 500);
     const [wasm, setWasm] = React.useState<[WasinodotExports, Array<string>, InputBuffer] | null>(null);
     const ref = React.useRef<HTMLDivElement>(null);
@@ -118,12 +118,16 @@ function Graphviz({text, onError}: { text: string, onError?: (err: string) => an
             free_render_data(result);
             ref.current.innerHTML = String(data);
         }
-        if (stderr.length && onError) {
-            onError(stderr.splice(0).join("\n"));
+        if (onError) {
+            if (stderr.length) {
+                onError(stderr.splice(0).join(""));
+            } else {
+                onError(null);
+            }
         }
     }, [wasm, ref, delayText, onError]);
 
-    return <div ref={ref} />;
+    return <div ref={ref} className={className}/>;
 }
 
 export default Graphviz;
