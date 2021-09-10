@@ -18,7 +18,7 @@ fn main() -> anyhow::Result<()> {
     src.push(0);
 
     let mut buf = ptr::null();
-    let len = render_inernal(src.as_ptr() as _, src.len() as c_int, &mut buf as _)?;
+    let len = render_inernal(src.as_ptr() as _, &mut buf as _)?;
     let b = unsafe { slice::from_raw_parts(buf as *const u8, len as usize) };
     let r = io::stdout().write_all(b);
     unsafe {

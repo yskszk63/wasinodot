@@ -1,8 +1,9 @@
+use std::alloc;
 use std::ffi::{CStr, CString, FromBytesWithNulError};
 use std::fmt::Display;
+use std::mem;
 use std::num::NonZeroU8;
 use std::os::raw::{c_char, c_int};
-use std::slice;
 
 use sys::{agclose, agmemread, gvAddLibrary, Agraph_t};
 
@@ -77,6 +78,26 @@ mod imports {
 
     extern "C" {
         pub fn handle_err(buf: *const c_char, len: c_int);
+    }
+}
+
+#[no_mangle]
+pub fn src_alloc(size: c_int) -> *mut u8 {
+    unsafe {
+        alloc::alloc(alloc::Layout::from_size_align_unchecked(
+            size as usize,
+            mem::align_of::<u8>(),
+        ))
+    }
+}
+
+#[no_mangle]
+pub fn src_free(ptr: *mut u8, size: c_int) {
+    unsafe {
+        alloc::dealloc(
+            ptr,
+            alloc::Layout::from_size_align_unchecked(size as usize, mem::align_of::<u8>()),
+        );
     }
 }
 
@@ -171,10 +192,7 @@ impl GraphvizContext {
         if ret != 0 {
             return Err(Error::Layout);
         }
-        Ok(Layout {
-            cx: self,
-            graph,
-        })
+        Ok(Layout { cx: self, graph })
     }
 
     fn render(
@@ -213,11 +231,7 @@ fn print_err<S: Display>(err: S) {
 }
 
 #[doc(hidden)]
-pub fn render_inernal(
-    src: *mut c_char,
-    srclen: c_int,
-    result: *mut *const c_char,
-) -> Result<c_int, Error> {
+pub fn render_inernal(src: *const c_char, result: *mut *const c_char) -> Result<c_int, Error> {
     unsafe {
         sys::agseterr(sys::AGERR);
         sys::agseterrf(errorf);
@@ -228,8 +242,7 @@ pub fn render_inernal(
     cx.add_library(&GraphvizPluginLibrary::Core);
     cx.add_library(&GraphvizPluginLibrary::DotLayout);
 
-    let src = unsafe { slice::from_raw_parts(src as *const u8, srclen as usize) };
-    let src = CStr::from_bytes_with_nul(src)?;
+    let src = unsafe { CStr::from_ptr(src) };
 
     let format = unsafe { CStr::from_bytes_with_nul_unchecked(&b"svg\0"[..]) };
     let engine = unsafe { CStr::from_bytes_with_nul_unchecked(&b"dot\0"[..]) };
@@ -247,8 +260,8 @@ pub fn render_inernal(
 }
 
 #[no_mangle]
-pub extern "C" fn render(src: *mut c_char, srclen: c_int, result: *mut *const c_char) -> c_int {
-    match render_inernal(src, srclen, result) {
+pub extern "C" fn render(src: *const c_char, result: *mut *const c_char) -> c_int {
+    match render_inernal(src, result) {
         Ok(len) => len,
         Err(err) => {
             print_err(err);

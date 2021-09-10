@@ -18,7 +18,7 @@ export default function Home() {
 
       <main className={styles.main}>
         <Editor text={text} onTextChanged={setText}/>
-        <Graphviz text={text} />
+        <Graphviz text={text} onError={console.log}/>
       </main>
     </div>
   )
