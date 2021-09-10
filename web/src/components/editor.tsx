@@ -43,7 +43,7 @@ function Editor({text, onTextChanged, errorMessage}: Props) {
                     },
                 }),
                 linter(view => {
-                    if (diagnostics.current) {
+                    if (diagnostics.current && view.visibleRanges.length) {
                         const { from, to } = view.visibleRanges[0];
                         return [
                             {
