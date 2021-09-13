@@ -9,7 +9,7 @@ export function useUrlHash(defaultValue: string): [string|null, (hash: string) =
         } else {
             setHash(window.location.hash.slice(1));
         }
-    }, [setHash]);
+    }, [defaultValue, setHash]);
     const set = useCallback((hash: string) => {
         window.history.replaceState({}, '', `#${hash}`);
         setHash(hash);

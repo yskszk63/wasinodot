@@ -6,6 +6,9 @@ export interface IZstd {
     decompress(text: string): string;
 }
 
+const ZERO = BigInt(0);
+const MAX_I32 = BigInt(0x7FFF_FFFF);
+
 class Zstd {
     exports: ZstdExports;
 
@@ -22,7 +25,7 @@ class Zstd {
             const dstLen = textBuf.byteLength * 2;
             const dst = this.exports.malloc(dstLen);
             try {
-                const ret = this.exports.ZSTD_compress(dst, dstLen, ptr, textBuf.byteLength, 0);
+                const ret = this.exports.ZSTD_compress(dst, dstLen, ptr, textBuf.byteLength, 3); // 3: zstd cli default level
                 if (ret < 0) {
                     throw new Error(`failed to compress.${ret}`);
                 }
@@ -42,7 +45,14 @@ class Zstd {
         try {
             new Uint8Array(this.exports.memory.buffer, ptr, textBuf.byteLength).set(textBuf);
 
-            const dstLen = textBuf.byteLength * 2;
+            const dstLenb = this.exports.ZSTD_getFrameContentSize(ptr, textBuf.byteLength);
+            if (dstLenb < ZERO) {
+                throw new Error("Could not detect decompressed size. May be stream compressed data.");
+            }
+            if (dstLenb > MAX_I32) {
+                throw new Error(`Too large data.${dstLenb}`);
+            }
+            const dstLen = Number(dstLenb);
             const dst = this.exports.malloc(dstLen);
             try {
                 const ret = this.exports.ZSTD_decompress(dst, dstLen, ptr, textBuf.byteLength);

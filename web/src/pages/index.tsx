@@ -15,7 +15,7 @@ export default function Home() {
   const [dot, setDot] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [hash, setHash] = useUrlHash("KLUv/QRYwQAAZGlncmFwaCBHIHsKICBhIC0+IGI7Cn0KmDWeMw=="); // digraph G {\n  a -> b;\n}
+  const [hash, setHash] = useUrlHash("KLUv/SQXuQAAZGlncmFwaCBHIHsKICBhIC0+IGI7Cn2j2B46"); // digraph G {\n  a -> b;\n}
   const [zstd, setZstd] = useState<IZstd | null>(null);
   useEffect(() => { createZstd().then(setZstd); }, []);
   useEffect(() => {
