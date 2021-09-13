@@ -1,7 +1,5 @@
-use std::alloc;
 use std::ffi::{CStr, CString, FromBytesWithNulError};
 use std::fmt::Display;
-use std::mem;
 use std::num::NonZeroU8;
 use std::os::raw::{c_char, c_int};
 
@@ -78,26 +76,6 @@ mod imports {
 
     extern "C" {
         pub fn handle_err(buf: *const c_char, len: c_int);
-    }
-}
-
-#[no_mangle]
-pub fn src_alloc(size: c_int) -> *mut u8 {
-    unsafe {
-        alloc::alloc(alloc::Layout::from_size_align_unchecked(
-            size as usize,
-            mem::align_of::<u8>(),
-        ))
-    }
-}
-
-#[no_mangle]
-pub fn src_free(ptr: *mut u8, size: c_int) {
-    unsafe {
-        alloc::dealloc(
-            ptr,
-            alloc::Layout::from_size_align_unchecked(size as usize, mem::align_of::<u8>()),
-        );
     }
 }
 

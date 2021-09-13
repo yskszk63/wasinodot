@@ -4,8 +4,8 @@ import { WasmFs } from "@wasmer/wasmfs";
 
 interface Wasinodot {
     memory: WebAssembly.Memory,
-    src_alloc: (size: number) => number,
-    src_free: (ptr: number, size: number) => void,
+    malloc: (size: number) => number,
+    free: (ptr: number) => void,
     render: (src: number, result: number) => number,
     free_render_data: (result: number) => void,
 }
@@ -16,15 +16,15 @@ class InputBuffer {
     length: number;
     ptr: number;
     memory: WebAssembly.Memory;
-    alloc: (size: number) => number;
+    malloc: (size: number) => number;
     free: (ptr: number, size: number) => void;
 
     constructor(exports: Wasinodot) {
         this.length = 1024 * 8;
         this.memory = exports.memory as WebAssembly.Memory;
-        this.alloc = exports.src_alloc;
-        this.free = exports.src_free;
-        this.ptr = this.alloc(this.length);
+        this.malloc = exports.malloc;
+        this.free = exports.free;
+        this.ptr = this.malloc(this.length);
     }
 
     destruct() {
@@ -40,7 +40,7 @@ class InputBuffer {
         if (read < text.length || this.length - written <= 0) {
             this.free(this.ptr, this.length);
             this.length = this.length * 2;
-            this.ptr = this.alloc(this.length);
+            this.ptr = this.malloc(this.length);
             return this.set(text);
         }
         new Uint8Array(this.memory.buffer, this.ptr + written, 1)[0] = 0;
@@ -92,16 +92,16 @@ function Graphviz({text, onError, className}: { text: string, onError?: (err: st
             return;
         }
 
-        const [{ memory, src_alloc, src_free, render, free_render_data }, stderr, buffer] = wasm;
+        const [{ memory, malloc, free, render, free_render_data }, stderr, buffer] = wasm;
 
         buffer.set(text);
-        const resultPtr = src_alloc(Uint32Array.BYTES_PER_ELEMENT);
+        const resultPtr = malloc(Uint32Array.BYTES_PER_ELEMENT);
         new Uint32Array(memory.buffer, resultPtr, 1)[0] = 0;
 
         const length = render(buffer.ptr, resultPtr);
         const result = new Uint32Array(memory.buffer, resultPtr, 1)[0];
 
-        src_free(resultPtr, Uint32Array.BYTES_PER_ELEMENT);
+        free(resultPtr);
 
         if (length >= 0) {
             const data = new TextDecoder().decode(new Uint8Array(memory.buffer, result, length));
