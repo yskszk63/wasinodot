@@ -12,15 +12,6 @@ interface Wasinodot {
 
 type WasinodotExports = WebAssembly.Exports & Wasinodot;
 
-function useDebounse(val: any, delay: number) {
-    const [dval, setDval] = React.useState(val);
-    React.useEffect(() => {
-        const timer = setTimeout(() => setDval(val), delay);
-        return () => clearTimeout(timer);
-    }, [val, delay]);
-    return dval;
-}
-
 class InputBuffer {
     length: number;
     ptr: number;
@@ -57,7 +48,6 @@ class InputBuffer {
 }
 
 function Graphviz({text, onError, className}: { text: string, onError?: (err: string | null) => any, className?: string, }) {
-    const delayText = useDebounse(text, 500);
     const [wasm, setWasm] = React.useState<[WasinodotExports, Array<string>, InputBuffer] | null>(null);
     const ref = React.useRef<HTMLDivElement>(null);
 
@@ -104,7 +94,7 @@ function Graphviz({text, onError, className}: { text: string, onError?: (err: st
 
         const [{ memory, src_alloc, src_free, render, free_render_data }, stderr, buffer] = wasm;
 
-        buffer.set(delayText);
+        buffer.set(text);
         const resultPtr = src_alloc(Uint32Array.BYTES_PER_ELEMENT);
         new Uint32Array(memory.buffer, resultPtr, 1)[0] = 0;
 
@@ -125,7 +115,7 @@ function Graphviz({text, onError, className}: { text: string, onError?: (err: st
                 onError(null);
             }
         }
-    }, [wasm, ref, delayText, onError]);
+    }, [wasm, ref, text, onError]);
 
     return <div ref={ref} className={className}/>;
 }

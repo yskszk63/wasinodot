@@ -3,11 +3,40 @@ import styles from '../styles/Home.module.css'
 
 import Editor from '../components/editor';
 import Graphviz from '../components/graphviz';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createZstd, IZstd } from '../lib/zstd';
+import { useDebounse } from "../lib/debouse";
+import { useUrlHash } from "../lib/urlhash";
 
 export default function Home() {
-  const [text, setText] = useState("digraph G {\n  a -> b;\n}");
+  const [initialized, setInitialized] = useState(false);
+  const [text, setText] = useState<string>("");
+  const delayText = useDebounse(text, 500);
+  const [dot, setDot] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [hash, setHash] = useUrlHash("KLUv/QRYwQAAZGlncmFwaCBHIHsKICBhIC0+IGI7Cn0KmDWeMw=="); // digraph G {\n  a -> b;\n}
+  const [zstd, setZstd] = useState<IZstd | null>(null);
+  useEffect(() => { createZstd().then(setZstd); }, []);
+  useEffect(() => {
+    if (zstd && delayText) {
+        const c = zstd.compress(delayText);
+        setHash(c);
+    }
+  }, [delayText, zstd, setHash]);
+  useEffect(() => {
+    if (zstd && hash !== null) {
+        const d = zstd.decompress(hash);
+        setDot(d);
+    }
+  }, [zstd, hash, setDot]);
+  useEffect(() => {
+    if (!initialized && hash && zstd) {
+        const d = zstd.decompress(hash);
+        setText(d);
+        setInitialized(true);
+    }
+  }, [hash, initialized, setInitialized, setText, zstd]);
 
   return (
     <div className={styles.container}>
@@ -18,8 +47,8 @@ export default function Home() {
       </Head>
 
       <main className={styles.main}>
-        <Editor text={text} onTextChanged={setText} errorMessage={errorMessage}/>
-        <Graphviz text={text} onError={setErrorMessage} className={styles.imagePane}/>
+        { initialized && <Editor text={text} onTextChanged={setText} errorMessage={errorMessage}/> }
+        <Graphviz text={dot} onError={setErrorMessage} className={styles.imagePane}/>
       </main>
     </div>
   )
