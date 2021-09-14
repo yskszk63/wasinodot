@@ -47,9 +47,16 @@ class InputBuffer {
     }
 }
 
-function Graphviz({text, onError, className}: { text: string, onError?: (err: string | null) => any, className?: string, }) {
+interface Props {
+    //src: ArrayBuffer | ArrayBufferView,
+    text: string,
+    onError?: (err: string | null) => any,
+    className?: string, 
+}
+
+function Graphviz({text, onError, className}: Props) {
     const [wasm, setWasm] = React.useState<[WasinodotExports, Array<string>, InputBuffer] | null>(null);
-    const ref = React.useRef<HTMLDivElement>(null);
+    const [image, setImage] = React.useState<string|null>(null);
 
     React.useEffect(() => {
         const done: Promise<[WebAssembly.Instance, Array<string>, InputBuffer]> = (async () => {
@@ -88,7 +95,7 @@ function Graphviz({text, onError, className}: { text: string, onError?: (err: st
     }, []);
 
     React.useEffect(() => {
-        if (!wasm || !ref.current) {
+        if (!wasm) {
             return;
         }
 
@@ -103,10 +110,14 @@ function Graphviz({text, onError, className}: { text: string, onError?: (err: st
 
         free(resultPtr);
 
+        let image: string|null = null;
         if (length >= 0) {
-            const data = new TextDecoder().decode(new Uint8Array(memory.buffer, result, length));
+            const data = memory.buffer.slice(result, result + length); // copy of ArrayBuffer
             free_render_data(result);
-            ref.current.innerHTML = String(data);
+
+            const blob = new Blob([data], { type: "image/svg+xml" });
+            image = URL.createObjectURL(blob);
+            setImage(image);
         }
         if (onError) {
             if (stderr.length) {
@@ -115,9 +126,14 @@ function Graphviz({text, onError, className}: { text: string, onError?: (err: st
                 onError(null);
             }
         }
-    }, [wasm, ref, text, onError]);
+        return () => {
+            if (image) {
+                URL.revokeObjectURL(image);
+            }
+        }
+    }, [wasm, text, onError, setImage]);
 
-    return <div ref={ref} className={className}/>;
+    return <div className={className}>{ image && <a href={image} target="_blank"><img src={image}/></a> }</div>;
 }
 
 export default Graphviz;
