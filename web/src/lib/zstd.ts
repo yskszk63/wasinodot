@@ -1,5 +1,5 @@
 import { compile, ZstdExports } from 'simple-wasi-zstd';
-import { WASI } from '@wasmer/wasi';
+import { EmptyWasi } from 'empty-wasi';
 
 const ZERO = BigInt(0);
 const MAX_I32 = BigInt(0x7FFF_FFFF);
@@ -65,7 +65,7 @@ export class Zstd {
 }
 
 export async function createZstd(): Promise<Zstd> {
-    const wasi = new WASI({});
+    const wasi = new EmptyWasi({});
     const module = await compile();
     const instance = await WebAssembly.instantiate(module, {
         ...wasi.getImports(module),

@@ -1,6 +1,5 @@
 import * as React from "react";
-import { WASI } from "@wasmer/wasi"
-import { WasmFs } from "@wasmer/wasmfs";
+import { EmptyWasi } from "empty-wasi"
 
 interface Wasinodot {
     memory: WebAssembly.Memory,
@@ -24,14 +23,7 @@ function Graphviz({src, onError, className}: Props) {
 
     React.useEffect(() => {
         (async () => {
-            const wasi = new WASI({
-                args: [],
-                env: {},
-                bindings: {
-                    ...WASI.defaultBindings,
-                    //fs: fs.fs,
-                }
-            });
+            const wasi = new EmptyWasi({});
             const module = await WebAssembly.compileStreaming(fetch("libwasinodot.wasm"));
             const stderr: Array<string> = [];
             const instance = await WebAssembly.instantiate(module, {
