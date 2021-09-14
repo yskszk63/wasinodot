@@ -95,7 +95,11 @@ function Graphviz({src, onError, className}: Props) {
         }
     }, [wasm, src, onError, setImage]);
 
-    return <div className={className}>{ image && <a href={image} target="_blank"><img src={image}/></a> }</div>;
+    return <div className={className}>{ image &&
+      <a href={image} target="_blank" rel="noreferrer">
+        <img src={image} alt="" />
+      </a>
+    }</div>;
 }
 
 export default Graphviz;
