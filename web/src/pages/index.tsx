@@ -4,7 +4,7 @@ import styles from '../styles/Home.module.css'
 import Editor from '../components/editor';
 import Graphviz from '../components/graphviz';
 import { useEffect, useState } from 'react';
-import { createZstd, IZstd } from '../lib/zstd';
+import { createZstd, Zstd } from '../lib/zstd';
 import { useDebounse } from "../lib/debouse";
 import { useUrlHash } from "../lib/urlhash";
 
@@ -12,11 +12,11 @@ export default function Home() {
   const [initialized, setInitialized] = useState(false);
   const [text, setText] = useState<string>("");
   const delayText = useDebounse(text, 500);
-  const [dot, setDot] = useState("");
+  const [dot, setDot] = useState(new Uint8Array());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [hash, setHash] = useUrlHash("KLUv/SQXuQAAZGlncmFwaCBHIHsKICBhIC0+IGI7Cn2j2B46"); // digraph G {\n  a -> b;\n}
-  const [zstd, setZstd] = useState<IZstd | null>(null);
+  const [zstd, setZstd] = useState<Zstd | null>(null);
   useEffect(() => { createZstd().then(setZstd); }, []);
   useEffect(() => {
     if (zstd && delayText) {
@@ -26,14 +26,14 @@ export default function Home() {
   }, [delayText, zstd, setHash]);
   useEffect(() => {
     if (zstd && hash !== null) {
-        const d = zstd.decompress(hash);
+        const d = zstd.decompressBytes(hash);
         setDot(d);
     }
   }, [zstd, hash, setDot]);
   useEffect(() => {
     if (!initialized && hash && zstd) {
-        const d = zstd.decompress(hash);
-        setText(d);
+        const d = zstd.decompressBytes(hash);
+        setText(new TextDecoder().decode(d));
         setInitialized(true);
     }
   }, [hash, initialized, setInitialized, setText, zstd]);
@@ -48,7 +48,7 @@ export default function Home() {
 
       <main className={styles.main}>
         { initialized && <Editor text={text} onTextChanged={setText} errorMessage={errorMessage}/> }
-        <Graphviz text={dot} onError={setErrorMessage} className={styles.imagePane}/>
+        <Graphviz src={dot} onError={setErrorMessage} className={styles.imagePane}/>
       </main>
     </div>
   )

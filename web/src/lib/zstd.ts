@@ -1,15 +1,10 @@
 import { compile, ZstdExports } from 'simple-wasi-zstd';
 import { WASI } from '@wasmer/wasi';
 
-export interface IZstd {
-    compress(text: string): string;
-    decompress(text: string): string;
-}
-
 const ZERO = BigInt(0);
 const MAX_I32 = BigInt(0x7FFF_FFFF);
 
-class Zstd {
+export class Zstd {
     exports: ZstdExports;
 
     constructor(exports: ZstdExports) {
@@ -39,7 +34,7 @@ class Zstd {
         }
     }
 
-    decompress(text: string): string {
+    decompressBytes(text: string): Uint8Array {
         const textBuf = Uint8Array.from(Array.from(atob(text), c => c.charCodeAt(0)));
         const ptr = this.exports.malloc(textBuf.byteLength);
         try {
@@ -59,8 +54,7 @@ class Zstd {
                 if (ret < 0) {
                     throw new Error(`failed to decompress.${ret}`);
                 }
-                const buf = new Uint8Array(this.exports.memory.buffer, dst, ret);
-                return new TextDecoder().decode(buf);
+                return new Uint8Array(this.exports.memory.buffer.slice(dst, dst + ret));
             } finally {
                 this.exports.free(dst);
             }
@@ -70,7 +64,7 @@ class Zstd {
     }
 }
 
-export async function createZstd(): Promise<IZstd> {
+export async function createZstd(): Promise<Zstd> {
     const wasi = new WASI({});
     const module = await compile();
     const instance = await WebAssembly.instantiate(module, {

@@ -12,61 +12,24 @@ interface Wasinodot {
 
 type WasinodotExports = WebAssembly.Exports & Wasinodot;
 
-class InputBuffer {
-    length: number;
-    ptr: number;
-    memory: WebAssembly.Memory;
-    malloc: (size: number) => number;
-    free: (ptr: number, size: number) => void;
-
-    constructor(exports: Wasinodot) {
-        this.length = 1024 * 8;
-        this.memory = exports.memory as WebAssembly.Memory;
-        this.malloc = exports.malloc;
-        this.free = exports.free;
-        this.ptr = this.malloc(this.length);
-    }
-
-    destruct() {
-        this.free(this.ptr, this.length);
-    }
-
-    set(text: string): void {
-        const encoder = new TextEncoder();
-        const { read, written } = encoder.encodeInto(text, new Uint8Array(this.memory.buffer, this.ptr, this.length));
-        if (typeof read === 'undefined' || typeof written === 'undefined') {
-            throw new Error('unexpected.');
-        }
-        if (read < text.length || this.length - written <= 0) {
-            this.free(this.ptr, this.length);
-            this.length = this.length * 2;
-            this.ptr = this.malloc(this.length);
-            return this.set(text);
-        }
-        new Uint8Array(this.memory.buffer, this.ptr + written, 1)[0] = 0;
-    }
-}
-
 interface Props {
-    //src: ArrayBuffer | ArrayBufferView,
-    text: string,
+    src: Uint8Array,
     onError?: (err: string | null) => any,
     className?: string, 
 }
 
-function Graphviz({text, onError, className}: Props) {
-    const [wasm, setWasm] = React.useState<[WasinodotExports, Array<string>, InputBuffer] | null>(null);
+function Graphviz({src, onError, className}: Props) {
+    const [wasm, setWasm] = React.useState<[WasinodotExports, Array<string>] | null>(null);
     const [image, setImage] = React.useState<string|null>(null);
 
     React.useEffect(() => {
-        const done: Promise<[WebAssembly.Instance, Array<string>, InputBuffer]> = (async () => {
-            const fs = new WasmFs();
+        (async () => {
             const wasi = new WASI({
                 args: [],
                 env: {},
                 bindings: {
                     ...WASI.defaultBindings,
-                    fs: fs.fs,
+                    //fs: fs.fs,
                 }
             });
             const module = await WebAssembly.compileStreaming(fetch("libwasinodot.wasm"));
@@ -83,15 +46,9 @@ function Graphviz({text, onError, className}: Props) {
             });
             wasi.start(instance);
             const exports = instance.exports as WasinodotExports;
-            const buf = new InputBuffer(exports);
-            setWasm([exports, stderr, buf]);
-            return [instance, stderr, buf] as [WebAssembly.Instance, Array<string>, InputBuffer];
+            setWasm([exports, stderr]);
+            return [instance, stderr] as [WebAssembly.Instance, Array<string>];
         })();
-        return () => {
-            done.then(([_instance, _stderr, buf]) => {
-                buf.destruct();
-            });
-        }
     }, []);
 
     React.useEffect(() => {
@@ -99,16 +56,29 @@ function Graphviz({text, onError, className}: Props) {
             return;
         }
 
-        const [{ memory, malloc, free, render, free_render_data }, stderr, buffer] = wasm;
+        const [{ memory, malloc, free, render, free_render_data }, stderr] = wasm;
 
-        buffer.set(text);
-        const resultPtr = malloc(Uint32Array.BYTES_PER_ELEMENT);
-        new Uint32Array(memory.buffer, resultPtr, 1)[0] = 0;
+        let length;
+        let result;
+        const buf = malloc(src.byteLength + 1);
+        if (buf === 0) {
+            throw new Error("failed to malloc.");
+        }
+        try {
+            new Uint8Array(memory.buffer, buf, src.byteLength).set(src);
+            new Uint8Array(memory.buffer, buf + src.byteLength, 1).set([0]);
+            const resultPtr = malloc(Uint32Array.BYTES_PER_ELEMENT);
+            try {
+                new Uint32Array(memory.buffer, resultPtr, 1)[0] = 0;
+                length = render(buf, resultPtr);
+                result = new Uint32Array(memory.buffer, resultPtr, 1)[0];
+            } finally {
+                free(resultPtr);
+            }
 
-        const length = render(buffer.ptr, resultPtr);
-        const result = new Uint32Array(memory.buffer, resultPtr, 1)[0];
-
-        free(resultPtr);
+        } finally {
+            free(buf);
+        }
 
         let image: string|null = null;
         if (length >= 0) {
@@ -131,7 +101,7 @@ function Graphviz({text, onError, className}: Props) {
                 URL.revokeObjectURL(image);
             }
         }
-    }, [wasm, text, onError, setImage]);
+    }, [wasm, src, onError, setImage]);
 
     return <div className={className}>{ image && <a href={image} target="_blank"><img src={image}/></a> }</div>;
 }
