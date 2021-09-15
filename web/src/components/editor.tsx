@@ -3,6 +3,13 @@ import {EditorState, EditorView, basicSetup} from "@codemirror/basic-setup";
 import {keymap} from "@codemirror/view";
 import {indentWithTab} from "@codemirror/commands";
 import {linter, openLintPanel} from "@codemirror/lint";
+import {LanguageSupport} from "@codemirror/language";
+import {javascriptLanguage} from "@codemirror/lang-javascript";
+
+function dot() {
+    return new LanguageSupport(javascriptLanguage, javascriptLanguage.data.of({
+    }));
+}
 
 interface Props {
     onTextChanged?: (text: string) => any,
@@ -30,6 +37,7 @@ function Editor({text, onTextChanged, errorMessage}: Props) {
             doc: initialText,
             extensions: [
                 basicSetup,
+                dot(),
                 keymap.of([indentWithTab]),
                 EditorView.updateListener.of(val => {
                     if (!val.changes.empty) {
