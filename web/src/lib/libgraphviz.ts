@@ -1,5 +1,5 @@
 import { EmptyWasi } from "empty-wasi";
-import { ccheck } from "./c";
+import { CBuffer, CIntPtr, cwith } from "./c";
 
 interface Wasinodot {
     memory: WebAssembly.Memory,
@@ -39,35 +39,27 @@ export class LibGraphviz {
     }
 
     render(src: Uint8Array): [Blob|null, Array<string>] {
-        const { memory, malloc, free, render, free_render_data } = this.exports;
+        const { memory, render, free_render_data } = this.exports;
 
-        let length;
-        let result;
-        const buf = ccheck(malloc(src.byteLength + 1), "failed to malloc.");
+        const [length, result] = cwith(CBuffer.fromCstr(this.exports, src), buf => {
+            return cwith(CIntPtr.alloc(this.exports), resultPtr => {
+                const length = render(buf.ptr, resultPtr.ptr);
+                const result = resultPtr.get();
+                return [length, result]
+            });
+        });
         try {
-            new Uint8Array(memory.buffer, buf, src.byteLength).set(src);
-            new Uint8Array(memory.buffer, buf + src.byteLength, 1).set([0]);
-            const resultPtr = ccheck(malloc(Uint32Array.BYTES_PER_ELEMENT), "failed to malloc.");
-            try {
-                new Uint32Array(memory.buffer, resultPtr, 1)[0] = 0;
-                length = render(buf, resultPtr);
-                result = new Uint32Array(memory.buffer, resultPtr, 1)[0];
-            } finally {
-                free(resultPtr);
+            let image: Blob|null = null;
+            if (length >= 0) {
+                const data = memory.buffer.slice(result, result + length); // copy of ArrayBuffer
+                image = new Blob([data], { type: "image/svg+xml" });
             }
-
+            const stderr = this.stderr.splice(0);
+            return [image, stderr];
         } finally {
-            free(buf);
+            if (result !== 0) {
+                free_render_data(result);
+            }
         }
-
-        let image: Blob|null = null;
-        if (length >= 0) {
-            const data = memory.buffer.slice(result, result + length); // copy of ArrayBuffer
-            free_render_data(result);
-
-            image = new Blob([data], { type: "image/svg+xml" });
-        }
-        const stderr = this.stderr.splice(0);
-        return [image, stderr];
     }
 }
