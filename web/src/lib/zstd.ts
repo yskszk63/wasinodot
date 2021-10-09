@@ -1,72 +1,162 @@
-import { compile, ZstdExports } from 'simple-wasi-zstd';
-import { EmptyWasi } from 'empty-wasi';
-import { ccheck, cwith, CBuffer } from '../lib/c';
-
-const ZERO = BigInt(0);
-const MAX_I32 = BigInt(0x7FFF_FFFF);
+import { compile, ZstdExports } from "simple-wasi-zstd";
+import { EmptyWasi } from "empty-wasi";
+import { CBuffer, CIntPtr } from "../lib/c";
 
 export class Zstd {
-    exports: ZstdExports;
+  exports: ZstdExports;
+  cctx?: number;
+  dctx?: number;
+  ibuf?: CBuffer;
+  obuf?: CBuffer;
+  ipos?: CIntPtr;
+  opos?: CIntPtr;
 
-    constructor(exports: ZstdExports) {
-        this.exports = exports;
+  constructor(exports: ZstdExports) {
+    this.exports = exports;
+
+    const {
+      ZSTD_createCCtx,
+      ZSTD_createDCtx,
+      ZSTD_CStreamInSize,
+      ZSTD_CStreamOutSize,
+    } = exports;
+
+    try {
+      this.cctx = ZSTD_createCCtx();
+      this.dctx = ZSTD_createDCtx();
+      this.ibuf = CBuffer.alloc(exports, ZSTD_CStreamInSize());
+      this.obuf = CBuffer.alloc(exports, ZSTD_CStreamOutSize());
+      this.ipos = CIntPtr.alloc(exports);
+      this.opos = CIntPtr.alloc(exports);
+    } catch (e) {
+      this.destroy();
+      throw e;
+    }
+  }
+
+  destroy() {
+    const { ZSTD_freeCCtx, ZSTD_freeDCtx } = this.exports;
+
+    if (this.cctx) {
+      ZSTD_freeCCtx(this.cctx);
+    }
+    if (this.dctx) {
+      ZSTD_freeDCtx(this.dctx);
+    }
+    this.ibuf?.destroy();
+    this.obuf?.destroy();
+    this.ipos?.destroy();
+    this.opos?.destroy();
+  }
+
+  compress(text: string): string {
+    if (!this.cctx || !this.obuf || !this.ibuf || !this.ipos || !this.opos) {
+      throw new Error("may be destroyed.");
     }
 
-    compress(text: string): string {
-        const textBuf = new TextEncoder().encode(text);
+    const { ZSTD_isError, ZSTD_CCtx_reset, ZSTD_compressStream2_simpleArgs } =
+      this.exports;
+    const { cctx, obuf, ibuf, ipos, opos } = this;
 
-        return cwith(CBuffer.alloc(this.exports, textBuf.byteLength), src => {
-            new Uint8Array(this.exports.memory.buffer, src.ptr, src.size).set(textBuf);
+    ZSTD_CCtx_reset(cctx, 2);
 
-            return cwith(CBuffer.alloc(this.exports, Math.max(src.size * 2, 13)), dst => {
-                for (const _ of Array.from({length: 5})) {
-                    // 3: zstd cli default level
-                    const level = 3;
-                    const ret = this.exports.ZSTD_compress(dst.ptr, dst.size, src.ptr, src.size, level);
-                    if (ret === -70) { // ZSTD_error_dstSize_tooSmall
-                        dst.grow();
-                    } else if (ret < 0) {
-                        throw new Error(`failed to compress.${ret}`);
-                    } else {
-                        const buf = new Uint8Array(this.exports.memory.buffer, dst.ptr, ret);
-                        return btoa(Array.from(buf, b => String.fromCharCode(b)).join(""));
-                    }
-                }
-                throw new Error("failed to compress cause allocation failed.");
-            });
-        });
+    const result: Array<string> = [];
+    const encoder = new TextEncoder();
+    let pos = 0;
+    while (pos < text.length) {
+      const { read, written } = encoder.encodeInto(text.slice(pos), ibuf.mem());
+      if (typeof read === "undefined" || typeof written === "undefined") {
+        throw new Error();
+      }
+      pos += read;
+
+      const last = !(pos < text.length);
+
+      ipos.set(0);
+      while (true) {
+        opos.set(0);
+        const mode = last ? 2 : 0;
+        const ret = ZSTD_compressStream2_simpleArgs(
+          cctx,
+          obuf.ptr,
+          obuf.size,
+          opos.ptr,
+          ibuf.ptr,
+          written,
+          ipos.ptr,
+          mode,
+        );
+        if (ZSTD_isError(ret)) {
+          throw new Error(`err: ${ret}`);
+        }
+        if (opos.get() > 0) {
+          result.push(
+            Array.from(obuf.mem(opos.get()), (b) => String.fromCharCode(b))
+              .join(""),
+          );
+        }
+        if (last ? ret === 0 : written === ipos.get()) {
+          break;
+        }
+      }
+    }
+    return btoa(result.join(""));
+  }
+
+  decompressBytes(text: string): Blob {
+    if (!this.dctx || !this.obuf || !this.ibuf || !this.ipos || !this.opos) {
+      throw new Error("may be destroyed.");
     }
 
-    decompressBytes(text: string): Uint8Array {
-        const textBuf = Uint8Array.from(Array.from(atob(text), c => c.charCodeAt(0)));
+    const { ZSTD_isError, ZSTD_DCtx_reset, ZSTD_decompressStream_simpleArgs } =
+      this.exports;
+    const { dctx, obuf, ibuf, ipos, opos } = this;
 
-        return cwith(CBuffer.alloc(this.exports, textBuf.byteLength), src => {
-            new Uint8Array(this.exports.memory.buffer, src.ptr, src.size).set(textBuf);
+    ZSTD_DCtx_reset(dctx, 2);
+    const textBuf = Uint8Array.from(
+      Array.from(atob(text), (c) => c.charCodeAt(0)),
+    );
+    const result: Array<Uint8Array> = [];
+    let pos = 0;
+    while (pos < textBuf.length) {
+      const n = Math.min(ibuf.size, textBuf.length - pos);
+      ibuf.mem().set(textBuf.slice(pos, pos + n));
+      pos += n;
 
-            const dstLenb = this.exports.ZSTD_getFrameContentSize(src.ptr, src.size);
-            if (dstLenb < ZERO) {
-                throw new Error("Could not detect decompressed size. May be stream compressed data.");
-            }
-            if (dstLenb > MAX_I32) {
-                throw new Error(`Too large data.${dstLenb}`);
-            }
-            const dstLen = Number(dstLenb);
-
-            return cwith(CBuffer.alloc(this.exports, dstLen), dst => {
-                const ret = ccheck(this.exports.ZSTD_decompress(dst.ptr, dstLen, src.ptr, src.size), "failed to decompress.");
-                return new Uint8Array(this.exports.memory.buffer.slice(dst.ptr, dst.ptr + ret));
-            });
-        });
+      ipos.set(0);
+      while (true) {
+        opos.set(0);
+        const ret = ZSTD_decompressStream_simpleArgs(
+          dctx,
+          obuf.ptr,
+          obuf.size,
+          opos.ptr,
+          ibuf.ptr,
+          n,
+          ipos.ptr,
+        );
+        if (ZSTD_isError(ret)) {
+          throw new Error(`err ${ret}`);
+        }
+        if (opos.get() > 0) {
+          result.push(obuf.mem(opos.get()).slice());
+        }
+        if (n === ipos.get()) {
+          break;
+        }
+      }
     }
+    return new Blob(result);
+  }
 }
 
 export async function createZstd(): Promise<Zstd> {
-    const wasi = new EmptyWasi({});
-    const module = await compile();
-    const instance = await WebAssembly.instantiate(module, {
-        ...wasi.getImports(module),
-    });
-    wasi.start(instance);
+  const wasi = new EmptyWasi({});
+  const module = await compile();
+  const instance = await WebAssembly.instantiate(module, {
+    ...wasi.getImports(module),
+  });
+  wasi.start(instance);
 
-    return new Zstd(instance.exports as ZstdExports);
+  return new Zstd(instance.exports as ZstdExports);
 }
