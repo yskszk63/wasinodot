@@ -1,17 +1,20 @@
 import * as React from "react";
 import { basicSetup, EditorState, EditorView } from "@codemirror/basic-setup";
+import { StateEffect, Compartment } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
 import { linter, openLintPanel } from "@codemirror/lint";
 import { dot } from "cm-lang-dot";
+import { oneDark } from "@codemirror/theme-one-dark";
 
 interface Props {
   onTextChanged?: (text: string) => any;
   text?: string;
   errorMessage?: string | null;
+  darkTheme?: boolean | null;
 }
 
-function Editor({ text, onTextChanged, errorMessage }: Props) {
+function Editor({ text, onTextChanged, errorMessage, darkTheme }: Props) {
   const element = React.useRef<HTMLDivElement>(null);
 
   const handler = React.useCallback((text) => {
@@ -26,6 +29,7 @@ function Editor({ text, onTextChanged, errorMessage }: Props) {
     diagnostics.current = errorMessage;
   }, [errorMessage]);
 
+  const [theme] = React.useState(() => new Compartment());
   const state = React.useMemo(() => {
     return EditorState.create({
       doc: initialText,
@@ -59,10 +63,12 @@ function Editor({ text, onTextChanged, errorMessage }: Props) {
             return [];
           }
         }),
+        theme.of([]),
       ],
     });
-  }, [initialText, handler, diagnostics]);
+  }, [initialText, handler, diagnostics, theme]);
 
+  const [view, setView] = React.useState<EditorView | null>(null);
   React.useEffect(() => {
     if (!element.current) {
       throw new Error("element not initialized.");
@@ -73,8 +79,21 @@ function Editor({ text, onTextChanged, errorMessage }: Props) {
     });
     openLintPanel(view);
     view.focus();
-    return () => view.destroy();
-  }, [element, state]);
+    setView(view);
+    return () => {
+      view.destroy();
+      setView(null);
+    }
+  }, [element, state, setView]);
+  React.useEffect(() => {
+    if (!view) {
+      return;
+    }
+
+    view.dispatch({
+      effects: theme.reconfigure((darkTheme ?? false) ? oneDark : []),
+    });
+  }, [view, darkTheme, theme]);
 
   return (
     <>

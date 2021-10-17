@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { createZstd, Zstd } from "../lib/zstd";
 import { useDebounse } from "../lib/debouse";
 import { useUrlHash } from "../lib/urlhash";
+import { useMediaQuery } from "../lib/mediaquery";
 
 export default function Home() {
   const [initialized, setInitialized] = useState(false);
@@ -15,6 +16,7 @@ export default function Home() {
   const [dot, setDot] = useState(new Uint8Array());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const dark = useMediaQuery('(prefers-color-scheme: dark)');
   const [hash, setHash] = useUrlHash(
     "KLUv/SQXuQAAZGlncmFwaCBHIHsKICBhIC0+IGI7Cn2j2B46",
   ); // digraph G {\n  a -> b;\n}
@@ -66,6 +68,7 @@ export default function Home() {
               text={text}
               onTextChanged={setText}
               errorMessage={errorMessage}
+              darkTheme={dark}
             />
           )}
         <Graphviz
