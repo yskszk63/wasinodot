@@ -1,11 +1,11 @@
 import * as React from "react";
 import { basicSetup, EditorState, EditorView } from "@codemirror/basic-setup";
-import { StateEffect, Compartment } from "@codemirror/state";
+import { Compartment } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
 import { linter, openLintPanel } from "@codemirror/lint";
 import { dot } from "cm-lang-dot";
-import { oneDark } from "@codemirror/theme-one-dark";
+import * as ayutheme from "../lib/theme-ayu";
 
 interface Props {
   onTextChanged?: (text: string) => any;
@@ -91,7 +91,7 @@ function Editor({ text, onTextChanged, errorMessage, darkTheme }: Props) {
     }
 
     view.dispatch({
-      effects: theme.reconfigure((darkTheme ?? false) ? oneDark : []),
+      effects: theme.reconfigure((darkTheme ?? false) ? ayutheme.dark : ayutheme.light),
     });
   }, [view, darkTheme, theme]);
 
