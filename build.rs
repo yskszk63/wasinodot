@@ -60,14 +60,7 @@ fn configure(graphviz_dir: &Path) -> PathBuf {
         return build;
     }
 
-    let wasi_sdk_path = env::var("WASI_SDK_PATH").ok();
-    let sysroot = if let Some(wasi_sdk_path) = wasi_sdk_path {
-        Path::new(&wasi_sdk_path).join("share/wasi-sysroot")
-    } else {
-        let wasi_sysroot =
-            env::var("WASI_SYSROOT").expect("`WASI_SDK_PATH` or `WASI_SYSROOT` not set.");
-        PathBuf::from(wasi_sysroot)
-    };
+    let wasi_sdk_path = env::var("WASI_SDK_PATH").expect("`WASI_SDK_PATH` not set.");
 
     let ok = Command::new(graphviz_dir.join("configure"))
         .arg(format!("--host={}", host))
@@ -84,26 +77,24 @@ fn configure(graphviz_dir: &Path) -> PathBuf {
             "--without-pangocairo",
             "--without-webp",
         ])
-        .arg(format!("--with-sysroot={}", sysroot.to_string_lossy()))
         .arg(format!(
             "--with-extraincludedir={}",
             Path::new(&dir).join("graphviz-stub").to_string_lossy()
         ))
-        .env("CC", "clang")
-        .env("LD", "wasm-ld")
-        .env("CXX", "clang++")
-        .env("NM", "llvm-nm")
-        .env("AR", "llvm-ar")
-        .env("RANLIB", "llvm-ranlib")
+        .env("CC", format!("{}/bin/clang", wasi_sdk_path))
+        .env("LD", format!("{}/bin/wasm-ld", wasi_sdk_path))
+        .env("CXX", format!("{}/bin/clang++", wasi_sdk_path))
+        .env("NM", format!("{}/bin/llvm-nm", wasi_sdk_path))
+        .env("AR", format!("{}/bin/llvm-ar", wasi_sdk_path))
+        .env("RANLIB", format!("{}/bin/llvm-ranlib", wasi_sdk_path))
         .env(
-            "CFLAGS",
-            format!(
-                "--sysroot={} -target wasm32-wasi",
-                sysroot.to_string_lossy()
-            ),
+            "CPPFLAGS",
+            "-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS",
         )
-        .env("CPPFLAGS", "-D_WASI_EMULATED_SIGNAL")
-        .env("LDFLAGS", "-lwasi-emulated-signal")
+        .env(
+            "LDFLAGS",
+            "-lwasi-emulated-signal -lwasi-emulated-process-clocks",
+        )
         .current_dir(&build)
         .status()
         .expect("unable to run configure")
@@ -117,6 +108,7 @@ fn configure(graphviz_dir: &Path) -> PathBuf {
 
 fn make(build: &Path) {
     let ok = Command::new("make")
+        .arg("-j")
         .current_dir(build.join("lib"))
         .status()
         .expect("unable to run make.")
@@ -126,6 +118,7 @@ fn make(build: &Path) {
     }
 
     let ok = Command::new("make")
+        .arg("-j")
         .current_dir(build.join("plugin"))
         .status()
         .expect("unable to run make.")
