@@ -15,9 +15,9 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y --no-install-recommends curl ca-certificates patch make
-        wasi_sdk_url='https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz'
+        wasi_sdk_url='https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-14/wasi-sdk-14.0-linux.tar.gz'
         sudo curl -L $wasi_sdk_url|tar zxf - -C /opt
-        sudo mv /opt/wasi-sdk-12.0 /opt/wasi-sdk
+        sudo mv /opt/wasi-sdk-14.0 /opt/wasi-sdk
         echo "/opt/wasi-sdk/bin" >> $GITHUB_PATH
 
     - uses: actions-rs/toolchain@v1
