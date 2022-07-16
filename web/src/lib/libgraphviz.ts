@@ -20,9 +20,6 @@ export class LibGraphviz {
     const instance = await WebAssembly.instantiate(module, {
       ...wasi.getImports(module),
       env: {
-        times() {
-          throw new Error("not implemented.");
-        },
         handle_err(buf: number, len: number) {
           const mem = instance.exports.memory as WebAssembly.Memory;
           const msg = new Uint8Array(mem.buffer, buf, len);

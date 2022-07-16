@@ -6,7 +6,7 @@ use std::os::raw::{c_char, c_int};
 use sys::{agclose, agmemread, gvAddLibrary, Agraph_t};
 
 pub mod stub {
-    use std::os::raw::c_int;
+    use std::os::raw::{c_int, c_longlong};
 
     #[no_mangle]
     pub extern "C" fn tmpfile() -> c_int {
@@ -25,6 +25,11 @@ pub mod stub {
 
     #[no_mangle]
     pub extern "C" fn longjmp(_env: jmp_buf, _val: c_int) {
+        unimplemented!();
+    }
+
+    #[no_mangle]
+    pub extern "C" fn times(_: c_int) -> c_longlong {
         unimplemented!();
     }
 }

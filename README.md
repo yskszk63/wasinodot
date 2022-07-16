@@ -16,6 +16,17 @@ This is my experimental hobby project.
 4. `WASI_SDK_PATH=/opt/wasi-sdk cargo wasi build --release`
 5. `ls target/wasm32-wasi/release/libwasinodot.wasm`
 
+## How to run
+
+### cli
+
+`echo 'graph { ok; }' | wasmtime target/wasm32-wasi/release/wasinodot.wasm`
+
+### Browser
+
+1. `cp target/wasm32-wasi/release/libwasinodot.wasm web/public/libwasinodot.wasm`
+2. `cd web && npm ci && npm run dev`
+
 ## License
 
 [MIT](LICENSE)
