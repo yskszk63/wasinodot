@@ -17,10 +17,13 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y --no-install-recommends curl ca-certificates patch make
-        wasi_sdk_url='https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-22/wasi-sdk-22.0-linux.tar.gz'
+        wasi_sdk_url='https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-$WAS_SDK_VERSION/wasi-sdk-$WAS_SDK_VERSION_FULL-linux.tar.gz'
         sudo curl -L $wasi_sdk_url|tar zxf - -C /opt
-        sudo mv /opt/wasi-sdk-14.0 /opt/wasi-sdk
+        sudo mv /opt/wasi-sdk-$WAS_SDK_VERSION_FULL /opt/wasi-sdk
         echo "/opt/wasi-sdk/bin" >> $GITHUB_PATH
+      env:
+        WAS_SDK_VERSION: 22
+        WAS_SDK_VERSION_FULL: 22.0
 
     - uses: actions-rs/toolchain@v1
       with:
