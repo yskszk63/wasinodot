@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 
 fn get_graphviz_dir() -> PathBuf {
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let graphviz_dir = Path::new(&dir).join("graphviz-2.49.0");
+    let graphviz_dir = Path::new(&dir).join("graphviz-11.0.0");
     if fs::metadata(&graphviz_dir)
         .map(|m| m.is_dir())
         .unwrap_or_default()
@@ -14,7 +14,7 @@ fn get_graphviz_dir() -> PathBuf {
         return graphviz_dir;
     }
 
-    let graphviz_url = "https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/2.49.0/graphviz-2.49.0.tar.xz";
+    let graphviz_url = "https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/11.0.0/graphviz-11.0.0.tar.xz";
 
     let mut curl = Command::new("curl")
         .args(["-LsSf", graphviz_url])
@@ -35,10 +35,11 @@ fn get_graphviz_dir() -> PathBuf {
         panic!("failed to run tar.");
     }
 
-    let ok = Command::new("patch")
-        .arg("-u")
+    // missing for read...(???)
+    let ok = Command::new("sed")
+        .arg("-i")
+        .arg("s;^;#include <unistd.h>\\n;")
         .arg(graphviz_dir.join("plugin/core/gvloadimage_core.c"))
-        .arg(Path::new(&dir).join("patch/gvloadimage_core.patch"))
         .status()
         .expect("unable to run patch.");
     if !ok.success() {
@@ -77,16 +78,13 @@ fn configure(graphviz_dir: &Path) -> PathBuf {
             "--without-pangocairo",
             "--without-webp",
         ])
-        .arg(format!(
-            "--with-extraincludedir={}",
-            Path::new(&dir).join("graphviz-stub").to_string_lossy()
-        ))
         .env("CC", format!("{}/bin/clang", wasi_sdk_path))
         .env("LD", format!("{}/bin/wasm-ld", wasi_sdk_path))
         .env("CXX", format!("{}/bin/clang++", wasi_sdk_path))
         .env("NM", format!("{}/bin/llvm-nm", wasi_sdk_path))
         .env("AR", format!("{}/bin/llvm-ar", wasi_sdk_path))
         .env("RANLIB", format!("{}/bin/llvm-ranlib", wasi_sdk_path))
+        .env("CFLAGS", "-mllvm -wasm-enable-sjlj")
         .env(
             "CPPFLAGS",
             "-D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS",

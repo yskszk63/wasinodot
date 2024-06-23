@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.base.schema.json",
+  "name": "wasinodot",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "remoteEnv": {
+	  "PATH": "${containerEnv:PATH}:/usr/local/lib/wasi-sdk-22.0/bin",
+    "WASI_SDK_PATH": "/usr/local/lib/wasi-sdk-22.0"
+  },
+  "features": {
+    "devwasm.azurecr.io/dev-wasm/dev-wasm-feature/wasmtime-wasi:0.0.15": {
+      "version": "22",
+      "wasmtime_version": "v22.0.0",
+      "wit_version": "0.26.0",
+      "wasm_tools_version": "1.0.60"
+    },
+    "ghcr.io/devcontainers/features/rust:1": {},
+	  "devwasm.azurecr.io/dev-wasm/dev-wasm-feature/rust-wasi:0.0.2": {}
+  },
+  "onCreateCommand": {
+    "install-cargo-wasi": [
+      "cargo",
+      "install",
+      "cargo-wasi"
+    ]
+  }
+}
