@@ -43,8 +43,8 @@ function Graphviz({ src, onError, className }: Props) {
     <div className={className}>
       {image &&
         (
-          <a href={image} target="_blank" rel="noreferrer">
-            <img src={image} alt="" />
+          <a href={image} target="_blank" rel="noreferrer" className="size-full shadow-lg bg-white">
+            <img src={image} alt="" className="size-full object-contain" />
           </a>
         )}
     </div>

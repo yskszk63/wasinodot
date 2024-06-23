@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-export function useDebounse(val: any, delay: number) {
-  const [dval, setDval] = useState(val);
+export function useDebounse<T>(val: T, delay: number): T {
+  const [dval, setDval] = useState<T>(val);
   useEffect(() => {
     const timer = setTimeout(() => setDval(val), delay);
     return () => clearTimeout(timer);

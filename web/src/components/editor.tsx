@@ -13,9 +13,10 @@ interface Props {
   text?: string;
   errorMessage?: string | null;
   darkTheme?: boolean | null;
+  className?: string;
 }
 
-function Editor({ text, onTextChanged, errorMessage, darkTheme }: Props) {
+function Editor({ text, onTextChanged, errorMessage, darkTheme, className }: Props) {
   const element = React.useRef<HTMLDivElement>(null);
 
   const handler = React.useCallback((text: string) => {
@@ -98,7 +99,7 @@ function Editor({ text, onTextChanged, errorMessage, darkTheme }: Props) {
 
   return (
     <>
-      <div ref={element} />
+      <div ref={element} className={className} />
     </>
   );
 }
