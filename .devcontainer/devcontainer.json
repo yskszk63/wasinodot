@@ -14,7 +14,10 @@
       "wasm_tools_version": "1.0.60"
     },
     "ghcr.io/devcontainers/features/rust:1": {},
-	  "devwasm.azurecr.io/dev-wasm/dev-wasm-feature/rust-wasi:0.0.2": {}
+	  "devwasm.azurecr.io/dev-wasm/dev-wasm-feature/rust-wasi:0.0.2": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
   },
   "onCreateCommand": {
     "install-cargo-wasi": [

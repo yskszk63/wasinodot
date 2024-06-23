@@ -1,9 +1,10 @@
 import {EditorView} from "@codemirror/view"
 import {Extension} from "@codemirror/state"
-import {HighlightStyle, tags as t} from "@codemirror/highlight"
+import {HighlightStyle, syntaxHighlighting} from "@codemirror/language"
+import {tags as t} from "@lezer/highlight"
 import * as ayu from "ayu";
 
-function mktheme(scheme: ayu.Scheme): [Extension, HighlightStyle] {
+function mktheme(scheme: ayu.Scheme): [Extension, Extension] {
   const {editor, syntax, ui, common} = scheme;
   const theme = EditorView.theme({
     "&": {
@@ -89,7 +90,7 @@ function mktheme(scheme: ayu.Scheme): [Extension, HighlightStyle] {
     {tag: t.invalid, color: common.error.hex()},
   ])
 
-  return [theme, highlight];
+  return [theme, syntaxHighlighting(highlight)];
 }
 
 /// Extension to enable the One Dark theme (both the editor theme and

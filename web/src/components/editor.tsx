@@ -1,6 +1,7 @@
 import * as React from "react";
-import { basicSetup, EditorState, EditorView } from "@codemirror/basic-setup";
-import { Compartment } from "@codemirror/state";
+import { basicSetup } from "codemirror";
+import { Compartment, EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { keymap } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
 import { linter, openLintPanel } from "@codemirror/lint";
@@ -17,7 +18,7 @@ interface Props {
 function Editor({ text, onTextChanged, errorMessage, darkTheme }: Props) {
   const element = React.useRef<HTMLDivElement>(null);
 
-  const handler = React.useCallback((text) => {
+  const handler = React.useCallback((text: string) => {
     if (onTextChanged) {
       onTextChanged(text);
     }

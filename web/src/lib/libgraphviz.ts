@@ -16,6 +16,8 @@ export class LibGraphviz {
     const stderr: Array<string> = [];
 
     const wasi = new EmptyWasi({});
+    // Not cjs module.
+    // eslint-disable-next-line @next/next/no-assign-module-variable
     const module = await WebAssembly.compileStreaming(fetch(wasmloc));
     const instance = await WebAssembly.instantiate(module, {
       ...wasi.getImports(module),

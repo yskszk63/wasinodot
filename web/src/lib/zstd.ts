@@ -152,6 +152,8 @@ export class Zstd {
 
 export async function createZstd(): Promise<Zstd> {
   const wasi = new EmptyWasi({});
+  // Not cjs module
+  // eslint-disable-next-line @next/next/no-assign-module-variable
   const module = await compile();
   const instance = await WebAssembly.instantiate(module, {
     ...wasi.getImports(module),

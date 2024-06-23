@@ -10,7 +10,7 @@ interface Props {
 function Graphviz({ src, onError, className }: Props) {
   const [lib, setLib] = useState<LibGraphviz | null>(null);
   const [image, setImage] = useState<string | null>(null);
-  const onErrorCallback = useCallback((msg) => {
+  const onErrorCallback = useCallback((msg: string | null) => {
     if (onError) {
       onError(msg);
     }
