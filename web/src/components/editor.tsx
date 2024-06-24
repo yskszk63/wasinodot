@@ -1,4 +1,6 @@
-import * as React from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
+import type { MutableRefObject } from "react";
+
 import { basicSetup } from "codemirror";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -8,42 +10,39 @@ import { linter, openLintPanel } from "@codemirror/lint";
 import { dot } from "cm-lang-dot";
 import { darcula, vscodeLight } from "@uiw/codemirror-themes-all";
 
-interface Props {
-  onTextChanged?: (text: string) => any;
-  text?: string;
-  errorMessage?: string | null;
-  darkTheme?: boolean | null;
-  className?: string;
+type UseEditorStateInput = {
+  text: string;
+  errorMessage: string | null;
+  themeRef: MutableRefObject<Compartment | null>;
+  onTextChanged: (text: string) => void;
 }
 
-function Editor({ text, onTextChanged, errorMessage, darkTheme, className }: Props) {
-  const element = React.useRef<HTMLDivElement>(null);
+function useEditorState({ text, errorMessage, themeRef, onTextChanged }: UseEditorStateInput): EditorState | undefined {
+  const [state, setState] = useState<EditorState | undefined>();
+  const initialText = useRef(text);
 
-  const handler = React.useCallback((text: string) => {
-    if (onTextChanged) {
-      onTextChanged(text);
-    }
-  }, [onTextChanged]);
+  const diagnostics = useRef<string | null>(null);
+  useImperativeHandle<string | null, string | null>(diagnostics, () => errorMessage, [errorMessage]);
 
-  const [initialText] = React.useState(text);
-  const diagnostics = React.useRef<string | null | undefined>(null);
-  React.useEffect(() => {
-    diagnostics.current = errorMessage;
-  }, [errorMessage]);
+  const onTextChangedRef = useRef<((text: string) => void) | null>(null);
+  useImperativeHandle(onTextChangedRef, () => onTextChanged, [onTextChanged]);
 
-  const [theme] = React.useState(() => new Compartment());
-  const state = React.useMemo(() => {
-    return EditorState.create({
-      doc: initialText,
+  useEffect(() => {
+    themeRef.current ??= new Compartment();
+
+    const state = EditorState.create({
+      doc: initialText.current,
       extensions: [
         basicSetup,
         dot(),
         keymap.of([indentWithTab]),
         EditorView.updateListener.of((val) => {
-          if (!val.changes.empty) {
-            const text = Array.from(val.state.doc).join("");
-            handler(text);
+          if (val.changes.empty || onTextChangedRef.current === null) {
+            return;
           }
+
+          const text = val.state.doc.toString();
+          onTextChangedRef.current(text);
         }),
         EditorView.theme({
           "&": {
@@ -51,27 +50,51 @@ function Editor({ text, onTextChanged, errorMessage, darkTheme, className }: Pro
           },
         }),
         linter((view) => {
-          if (diagnostics.current && view.visibleRanges.length) {
-            const { from, to } = view.visibleRanges[0];
-            return [
-              {
-                from,
-                to,
-                severity: "error",
-                message: diagnostics.current,
-              },
-            ];
-          } else {
+          if (diagnostics.current === null || view.visibleRanges.length === 0) {
             return [];
           }
+
+          const { from, to } = view.visibleRanges[0];
+          return [
+            {
+              from,
+              to,
+              severity: "error",
+              message: diagnostics.current,
+            },
+          ];
         }),
-        theme.of([]),
+        themeRef.current.of([]),
       ],
     });
-  }, [initialText, handler, diagnostics, theme]);
+    setState(state);
+  }, [themeRef]);
 
-  const [view, setView] = React.useState<EditorView | null>(null);
-  React.useEffect(() => {
+  return state;
+}
+
+interface Props {
+  onTextChanged?: (text: string) => void;
+  text?: string;
+  errorMessage?: string | null;
+  darkTheme?: boolean | null;
+  className?: string;
+}
+
+function Editor({ text, onTextChanged, errorMessage, darkTheme, className }: Props) {
+  const element = useRef<HTMLDivElement>(null);
+  const themeRef = useRef<Compartment | null>(null);
+
+  const state = useEditorState({
+    text: text ?? "",
+    onTextChanged: onTextChanged ?? (() => {}),
+    errorMessage: errorMessage ?? null,
+    themeRef,
+  });
+
+  const [view, setView] = useState<EditorView | null>(null);
+
+  useEffect(() => {
     if (!element.current) {
       throw new Error("element not initialized.");
     }
@@ -86,22 +109,23 @@ function Editor({ text, onTextChanged, errorMessage, darkTheme, className }: Pro
       view.destroy();
       setView(null);
     }
-  }, [element, state, setView]);
-  React.useEffect(() => {
+  }, [state]);
+
+  useEffect(() => {
+    if (themeRef.current === null) {
+      throw new Error();
+    }
+
     if (!view) {
       return;
     }
 
     view.dispatch({
-      effects: theme.reconfigure((darkTheme ?? false) ? darcula : vscodeLight),
+      effects: themeRef.current.reconfigure((darkTheme ?? false) ? darcula : vscodeLight),
     });
-  }, [view, darkTheme, theme]);
+  }, [view, darkTheme]);
 
-  return (
-    <>
-      <div ref={element} className={className} />
-    </>
-  );
+  return <div ref={element} className={className} />;
 }
 
 export default Editor;
