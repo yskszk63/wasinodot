@@ -6,7 +6,7 @@ import { keymap } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
 import { linter, openLintPanel } from "@codemirror/lint";
 import { dot } from "cm-lang-dot";
-import * as ayutheme from "../lib/theme-ayu";
+import { darcula, vscodeLight } from "@uiw/codemirror-themes-all";
 
 interface Props {
   onTextChanged?: (text: string) => any;
@@ -93,7 +93,7 @@ function Editor({ text, onTextChanged, errorMessage, darkTheme, className }: Pro
     }
 
     view.dispatch({
-      effects: theme.reconfigure((darkTheme ?? false) ? ayutheme.dark : ayutheme.light),
+      effects: theme.reconfigure((darkTheme ?? false) ? darcula : vscodeLight),
     });
   }, [view, darkTheme, theme]);
 

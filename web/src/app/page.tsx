@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import styles from "../styles/Home.module.css";
 
 import Editor from "@/components/editor";
 import Graphviz from "@/components/graphviz";
